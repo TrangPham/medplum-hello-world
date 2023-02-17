@@ -1,5 +1,5 @@
 import { Loader, Tabs } from '@mantine/core';
-import { getReferenceString } from '@medplum/core';
+import { createReference, getCodeBySystem, getReferenceString } from '@medplum/core';
 import { DiagnosticReport, Patient, ServiceRequest } from '@medplum/fhirtypes';
 import {
   AddressDisplay,
@@ -7,15 +7,19 @@ import {
   Document,
   PatientTimeline,
   ResourceAvatar,
+  ResourceForm,
   ResourceHistoryTable,
+  ResourceInput,
   ResourceName,
   useMedplum,
 } from '@medplum/react';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { text } from 'stream/consumers';
 import { PatientHeader } from './PatientHeader';
 
 import './PatientPage.css';
+import { useNavigate } from 'react-router-dom';
 
 interface PatientGraphQLResponse {
   data: {
@@ -26,6 +30,7 @@ interface PatientGraphQLResponse {
 }
 
 export function PatientPage(): JSX.Element {
+  const navigate = useNavigate();
   const medplum = useMedplum();
   const { id } = useParams();
   const [tab, setTab] = useState<string | null>('overview');
@@ -90,6 +95,17 @@ export function PatientPage(): JSX.Element {
   }
 
   const { patient, orders, reports } = response.data;
+
+  const handleAddDiagnosticReport = async () => {
+    const reportData: DiagnosticReport = {
+      resourceType: 'DiagnosticReport',
+      subject: createReference(patient),
+      status: 'final',
+      code: { coding: [{ code: 'Progress note' }] },
+    };
+    const report = await medplum.createResource(reportData);
+    return report;
+  };
 
   return (
     <>
@@ -163,6 +179,16 @@ export function PatientPage(): JSX.Element {
                   </li>
                 ))}
               </ul>
+              <input
+                type="button"
+                value="Add Diagnostic Report"
+                onClick={async () => {
+                  const report = await handleAddDiagnosticReport;
+                  console.log('Created Report', report.id);
+                  // redirect to edit page for new report
+                  navigate(`/DiagnosticReport/${report.id}`);
+                }}
+              />
             </div>
           </Tabs.Panel>
           {/**
